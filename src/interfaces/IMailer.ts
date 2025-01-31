@@ -1,3 +1,3 @@
-export interface IMailler {
+export interface IMailer {
     SendEmail(to: string, product: unknown);
 }

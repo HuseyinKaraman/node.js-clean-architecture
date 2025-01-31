@@ -1,21 +1,26 @@
 import express from "express";
-import {
-  ProductController,
-} from "../controllers/ProductController";
+import { Container } from "inversify";
+import { INTERFACE_TYPES } from "../utils";
+import { IProductRepository } from "../interfaces/IProductRepository";
 import { ProductRepository } from "../repositories/productRepository";
+import { IMailer } from "../interfaces/IMailer";
+import { IProductInteractor } from "../interfaces/IProductInteractor";
 import { ProductInteractor } from "../interactors/productInteractor";
-import { Mailler } from "../libs/mailer";
+import { Mailer } from "../libs/mailer";
+import { IMessageBroker } from "../interfaces/IMessageBroker";
 import { MessageBroker } from "../libs/messageBroker";
+import { ProductController } from "../controllers/ProductController";
 
-const repository = new ProductRepository();
-const mailer = new Mailler();
-const broker = new MessageBroker();
-const interactor = new ProductInteractor(repository, mailer, broker);
+const container = new Container();
 
-
-const controller = new ProductController(interactor);
+container.bind<IProductRepository>(INTERFACE_TYPES.ProductRepository).to(ProductRepository);
+container.bind<IProductInteractor>(INTERFACE_TYPES.ProductInteractor).to(ProductInteractor);
+container.bind<IMailer>(INTERFACE_TYPES.Mailer).to(Mailer);
+container.bind<IMessageBroker>(INTERFACE_TYPES.MessageBroker).to(MessageBroker);
+container.bind(INTERFACE_TYPES.ProductController).to(ProductController);
 
 const router = express.Router();
+const controller = container.get<ProductController>(INTERFACE_TYPES.ProductController);
 
 router.post("/products", controller.onCreateProduct.bind(controller));
 router.get("/products", controller.onGetProducts.bind(controller));

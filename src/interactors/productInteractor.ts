@@ -1,20 +1,23 @@
-import { IMailler } from "../interfaces/IMailer";
+import { inject, injectable } from "inversify";
+import { IMailer } from "../interfaces/IMailer";
 import { IMessageBroker } from "../interfaces/IMessageBroker";
 import { IProductInteractor } from "../interfaces/IProductInteractor";
 import { IProductRepository } from "../interfaces/IProductRepository";
+import { INTERFACE_TYPES } from "../utils";
 
+@injectable()
 export class ProductInteractor implements IProductInteractor {
   private repository: IProductRepository;
-  private mailler: IMailler;
+  private mailer: IMailer;
   private broker: IMessageBroker;
 
   constructor(
-    repository: IProductRepository, 
-    mailler: IMailler, 
-    broker: IMessageBroker
+    @inject(INTERFACE_TYPES.ProductRepository) repository: IProductRepository, 
+    @inject(INTERFACE_TYPES.Mailer) mailer: IMailer, 
+    @inject(INTERFACE_TYPES.MessageBroker) broker: IMessageBroker
   ) {
     this.repository = repository;
-    this.mailler = mailler;
+    this.mailer = mailer;
     this.broker = broker;
   }
 
@@ -28,7 +31,7 @@ export class ProductInteractor implements IProductInteractor {
 
   async updateStock(id: string, stock: number) {
     const data = await this.repository.update(id, stock);
-    await this.mailler.SendEmail("someone@someone.com", data);
+    await this.mailer.SendEmail("someone@someone.com", data);
     
     return data;
   }

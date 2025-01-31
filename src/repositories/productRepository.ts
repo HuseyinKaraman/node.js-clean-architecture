@@ -2,7 +2,9 @@ import { IProductRepository } from "../interfaces/IProductRepository";
 import { Product } from "../entities/Product";
 import { ProductModel } from "../infrastructure/database/mongo/models/Product.model";
 import { connectDB } from "../infrastructure/database/mongo/connection/connection";
+import { injectable } from "inversify";
 
+@injectable()
 export class ProductRepository implements IProductRepository {
   constructor() {
     connectDB()
