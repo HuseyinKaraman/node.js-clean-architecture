@@ -1,13 +1,12 @@
-// src/application/factories/UserRepositoryFactory.ts
-import { Model } from 'mongoose';
 import { IUserRepository } from '../../domain/repositories/IUserRepository';
 import { MongooseUserRepository } from '../../infrastructure/databases/mongoose/MongooseUserRepository';
-import { UserDocument } from '../../infrastructure/databases/mongoose/model/UserModel';
+import { DatabaseFactory } from './DatabaseFactory';
 
-export class UserRepositoryFactory {
-  public static create(userModel: Model<UserDocument>): IUserRepository {
-    return new MongooseUserRepository(userModel);
-  }
+export class RepositoryFactory {
+    static createUserRepository(): IUserRepository {
+        const userModel = DatabaseFactory.getUserModel();
+        return new MongooseUserRepository(userModel);
+    }
 }
 
 /*
@@ -26,4 +25,4 @@ export class UserRepositoryFactory {
     }
   }
 }
-  */
+*/

@@ -1,34 +1,50 @@
 import { Server } from './infrastructure/server/Server';
 import { UserController } from './interfaces/controllers/UserController';
 import { UserRoutes } from './interfaces/routes/UserRoutes';
-import { MongooseUserRepository } from './infrastructure/databases/mongoose/MongooseUserRepository';
-import  MongoDBConnection  from './config/MongooseConfig';
+import MongoDBConnection from './config/MongooseConfig';
 import 'express-async-errors';
 import dotenv from 'dotenv';
-import { UserUseCase } from './application/use-cases/userUseCase';
-import { UserModel } from './infrastructure/databases/mongoose/model/UserModel';
-import { UserRepositoryFactory } from './application/factories/UserRepositoryFactory';
 import logger from './interfaces/logger/Logger';
+import { constants } from './constants/index';
 
 dotenv.config();
 
 const startApplication = async () => {
-  const mongoConnection = MongoDBConnection.getInstance();
-  await mongoConnection.connect(process.env.MONGODB_URI as string);
+    try {
+        // MongoDB bağlantısı
+        const mongoConnection = MongoDBConnection.getInstance();
+        await mongoConnection.connect((constants.NODE_ENV === 'production' ? constants.PRODUCTION_DATABASE_URL : constants.DEVELOPMENT_DATABASE_URL) as string);
 
-  const port = process.env.PORT ? parseInt(process.env.PORT) : 5001;
-  const userRepository = UserRepositoryFactory.create(UserModel);
-  const userUseCase = new UserUseCase(userRepository);
+        // Port ayarı
+        const port = constants.PORT ? parseInt(constants.PORT) : 8000;
 
-  const userController = new UserController(userUseCase, null as any);
-  const userRoutes = new UserRoutes(userController);
+        // Server instance
+        const server = new Server(port);
 
-  const server = new Server(port, userRoutes);
-  userController['server'] = server;  // Inject server after initialization
-  server.start();
+        // Controller ve Routes
+        const userController = new UserController(server);
+        const userRoutes = new UserRoutes(userController);
+        server.addRoute(userRoutes);
+
+        // Server'ı başlat
+        server.start();
+
+        logger.info(`Server started successfully on port ${port}`);
+    } catch (error) {
+        logger.error('Error starting application:', error);
+        process.exit(1);
+    }
 };
 
-startApplication().catch((error) => {
-  logger.error('Error starting application:', error)
-  process.exit(1);
+// Uncaught error handling
+process.on('unhandledRejection', (error: Error) => {
+    logger.error('Unhandled Rejection:', error);
+    process.exit(1);
 });
+
+process.on('uncaughtException', (error: Error) => {
+    logger.error('Uncaught Exception:', error);
+    process.exit(1);
+});
+
+startApplication();

@@ -2,9 +2,11 @@ import { Router } from 'express';
 import { UserController } from '../controllers/UserController';
 import { validateUserRegister,validateUserLogin } from '../middlewares/ValidationMiddleware';
 import { AuthMiddleware } from '../middlewares/AuthMiddleware';
+import { IRouter } from '../interface/IRouter';
 
-export class UserRoutes {
+export class UserRoutes implements IRouter {
   public router: Router;
+  public path = "/api/auth";
 
   constructor(private userController: UserController) {
     this.router = Router();
