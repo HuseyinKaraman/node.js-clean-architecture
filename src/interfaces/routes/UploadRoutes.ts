@@ -18,6 +18,13 @@ export class UploadRoutes implements IRouter {
   }
 
   private initializeRoutes() {
+    this.router.post(
+      '/multiple/:fieldType/:entityType',
+      [AuthMiddleware],
+      this.createMultipleUploadMiddleware,
+      this.uploadController.handleUpload.bind(this.uploadController)
+    );
+
     // Genel dosya yükleme endpoint'i - her türlü dosya için
     this.router.post(
       '/:fieldType/:entityType',
@@ -74,7 +81,7 @@ export class UploadRoutes implements IRouter {
     (req as any).userId = userId;
 
     // Multer'ı çalıştır
-    upload.single('file')(req, res, (err:Error) => {
+    upload(req, res, (err:Error) => {
       if (err) {
         return res.status(400).json({
           success: false,
@@ -87,6 +94,46 @@ export class UploadRoutes implements IRouter {
       req.body.entityType = entityType;
       req.body.userId = userId;
       req.body.generateThumbnail = this.fileRepository.getUploadConfig(fieldType).generateThumbnail;
+      
+      next();
+    });
+  }
+
+  private createMultipleUploadMiddleware = (req: Request, res: Response, next: NextFunction) => {
+    const { entityType, fieldType } = req.params;
+    
+    if (!entityType) {
+      return res.status(400).json({
+        success: false, 
+        message: 'entityType parametresi gereklidir'
+      });
+    }
+
+    if (fieldType !== 'image' && fieldType !== 'template') {
+      return res.status(400).json({
+        success: false,
+        message: 'fieldType parametresi image veya template olmalıdır'
+      });
+    }
+    
+    const userId = (req as any).user?.id;
+    const upload = this.getUploadMiddleware(fieldType, userId);
+    
+    (req as any).entityType = entityType;
+    (req as any).userId = userId;
+
+    upload(req, res, (err: Error) => {
+      if (err) {
+        return res.status(400).json({
+          success: false,
+          message: err.message
+        });
+      }
+      
+      req.body.fieldType = fieldType;
+      req.body.entityType = entityType;
+      req.body.userId = userId;
+      req.body.generateThumbnail = true;
       
       next();
     });

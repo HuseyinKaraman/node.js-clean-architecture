@@ -9,6 +9,7 @@ import { constants } from "../../../constants";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { Request } from "express";
 import { IFileRepository } from "../../../domain/repositories/IFileRepository";
+import fs from "fs";
 
 // Şu an yüklü olmayan multer-s3 için kendi basit implementasyonumuzu yapalım
 const multerS3Storage = (opts: any) => {
@@ -41,32 +42,42 @@ export class S3FileRepository implements IFileRepository  {
     logo: {
       allowedExtensions: ['.jpg', '.jpeg', '.png', '.svg'],
       maxFileSize: 2 * 1024 * 1024, // 2MB
-      generateThumbnail: false
+      generateThumbnail: false,
+      multiple: false
     },
     image: {
       allowedExtensions: ['.jpg', '.jpeg', '.png', '.webp'],
       maxFileSize: 5 * 1024 * 1024, // 5MB
-      generateThumbnail: true
+      generateThumbnail: true,
+      multiple: true
     },
     icon: {
       allowedExtensions: ['.jpg', '.jpeg', '.png', '.svg'],
       maxFileSize: 1 * 1024 * 1024, // 1MB
-      generateThumbnail: false
+      generateThumbnail: false,
+      multiple: false
     },
     template: {
       allowedExtensions: ['.jpg', '.jpeg', '.png', '.pdf', '.doc', '.docx'],
       maxFileSize: 10 * 1024 * 1024, // 10MB
-      generateThumbnail: false
-    }
+      generateThumbnail: false,
+      multiple: true
+    },
+    // Yeni video konfigürasyonu
+    video: {
+      allowedExtensions: ['.mp4', '.mov', '.avi', '.wmv', '.webm'],
+      maxFileSize: 25 * 1024 * 1024, // 25MB
+      generateThumbnail: true,
+      multiple: false
+    },
   };
 
   constructor() {
     this.bucketName = constants.AWS_BUCKET_NAME || "filayo-uploads";
-    this.defaultAllowedExtensions = [".jpg", ".jpeg", ".png", ".gif", ".svg"];
-    this.defaultMaxFileSize = 5 * 1024 * 1024; // 5MB
+    this.defaultAllowedExtensions = [".jpg", ".jpeg", ".png", ".gif", ".svg", ".mp4", ".mov", ".avi", ".webm"];
+    this.defaultMaxFileSize = 10 * 1024 * 1024; // 10MB
     this.s3Client = s3Client;
 
-    const fs = require('fs');
     if (!fs.existsSync('temp-uploads')) {
       fs.mkdirSync('temp-uploads', { recursive: true });
     }
@@ -117,20 +128,27 @@ export class S3FileRepository implements IFileRepository  {
         const entityType = (req as any).entityType || options.entityType;
         const userId = (req as any).userId || options.userId || '';
 
+        // S3 keyleri ve filenameleri request objesine kaydet
+        if (!(req as any).s3Keys) {
+          (req as any).s3Keys = [];
+          (req as any).s3Filenames = [];
+        }
+
         // S3 key'i ve filename'i request objesine kaydet
-        (req as any).s3Key = this.getS3Key(entityType, userId, uniqueName);
-        (req as any).s3Filename = uniqueName;
+        const s3Key = this.getS3Key(entityType, userId, uniqueName);
+        (req as any).s3Keys.push(s3Key);
+        (req as any).s3Filenames.push(uniqueName);
         
         cb(null, uniqueName);
       }
     });
 
-    return multer({
+    const multerConfig = {
       storage,
       limits: {
         fileSize: options.maxFileSize || this.defaultMaxFileSize
       },
-      fileFilter: (req, file, cb) => {
+      fileFilter: (req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
         const allowedExtensions = options.allowedExtensions || this.defaultAllowedExtensions;
         const ext = path.extname(file.originalname).toLowerCase();
         
@@ -142,7 +160,17 @@ export class S3FileRepository implements IFileRepository  {
           cb(error as unknown as null, false);
         }
       }
-    });
+    };
+
+    // Eğer konfigürasyon çoklu dosya yüklemeyi destekliyorsa (multiple: true)
+    const uploadHandler = multer(multerConfig);
+    const fieldConfig = this.uploadConfigs[options.fieldName as keyof typeof this.uploadConfigs];
+    
+    if (fieldConfig && fieldConfig.multiple) {
+      return uploadHandler.array('files', 5);
+    } else {
+      return uploadHandler.single('file');
+    }
   }
 
   async uploadFile(file: Express.Multer.File, options: UploadOptions): Promise<UploadResult> {
@@ -154,7 +182,6 @@ export class S3FileRepository implements IFileRepository  {
       const key = this.getS3Key(entityType, userId || '', uniqueName);
       
       // Dosyayı oku
-      const fs = require('fs');
       const fileBuffer = fs.readFileSync(file.path);
       
       // S3'e yükle
@@ -178,34 +205,38 @@ export class S3FileRepository implements IFileRepository  {
       };
       
       // Thumbnail oluştur (istenirse ve desteklenen formatta ise)
-      if (generateThumbnail && file.mimetype.startsWith('image/') && !file.mimetype.includes('svg')) {
+      if (generateThumbnail) {
         try {
-          // Thumbnail oluştur
-          const thumbBuffer = await sharp(fileBuffer)
-            .resize(200, 200, { fit: 'inside' })
-            .toBuffer();
-          
-          // Thumbnail adını belirle
-          const thumbFilename = `thumb_${uniqueName}`;
-          const thumbKey = this.getS3Key(entityType, userId || '', thumbFilename);
-          
-          // Thumbnail'i S3'e yükle
-          await this.s3Client.send(new PutObjectCommand({
-            Bucket: this.bucketName,
-            Key: thumbKey,
-            Body: thumbBuffer,
-            ContentType: file.mimetype,
-            // ACL: options.acl as any || 'public-read'
-          }));
-          
-          // Thumbnail URL'sini ekle
-          result.thumbnailUrl = await this.getFileUrl(entityType, userId || '', thumbFilename);
-          result.thumbnailKey = thumbKey;
+          if (file.mimetype.startsWith('image/') && !file.mimetype.includes('svg')) {
+            // Resim dosyaları için thumbnail oluştur
+            const thumbBuffer = await sharp(fileBuffer)
+              .resize(200, 200, { fit: 'inside' })
+              .toBuffer();
+            
+            const thumbFilename = `thumb_${uniqueName}`;
+            const thumbKey = this.getS3Key(entityType, userId || '', thumbFilename);
+            
+            await this.s3Client.send(new PutObjectCommand({
+              Bucket: this.bucketName,
+              Key: thumbKey,
+              Body: thumbBuffer,
+              ContentType: file.mimetype
+            }));
+            
+            result.thumbnailUrl = await this.getFileUrl(entityType, userId || '', thumbFilename);
+            result.thumbnailKey = thumbKey;
+          } 
+          else if (file.mimetype.startsWith('video/')) {
+            // Video dosyaları için thumbnail oluştur (ffmpeg gerektiriyor)
+            // Bu kısmı genişletmek için ffmpeg entegrasyonu gerekiyor
+            // Şu an için boş bırakıyoruz, ileri düzeyde ffmpeg ile yapılabilir
+            console.log('Video thumbnail oluşturma işlemi ileride ffmpeg ile yapılabilir');
+          }
         } catch (error) {
           console.error('Thumbnail oluşturma hatası:', error);
         }
       }
-      
+
       // Geçici dosyayı temizle
       try {
         fs.unlinkSync(file.path);
@@ -215,11 +246,28 @@ export class S3FileRepository implements IFileRepository  {
       
       return result;
     } catch (error) {
-      console.error('Dosya yükleme hatası:', error);
       throw new Error(`Dosya S3'e yüklenirken hata oluştu: 
         ${error instanceof Error ? error.message : 'Bilinmeyen hata'}`);
     }
   }
+
+  // Çoklu dosya yükleme için yeni metod
+  async uploadMultipleFiles(files: Express.Multer.File[], options: UploadOptions): Promise<UploadResult[]> {
+    const results: UploadResult[] = [];
+    
+    for (const file of files) {
+      try {
+        const result = await this.uploadFile(file, options);
+        results.push(result);
+      } catch (error) {
+        console.error(`Dosya yükleme hatası (${file.originalname}):`, error);
+        // Hata olsa bile devam et, diğer dosyaları yüklemeye çalış
+      }
+    }
+    
+    return results;
+  }
+
 
   async getFileUrl(entityType: string, userId: string, filename: string): Promise<string> {
     const key = this.getS3Key(entityType, userId, filename);
