@@ -1,5 +1,5 @@
-import { DeleteFileUseCase } from "../use-cases/upload/DeleteFileUseCase";
-import { UploadFileUseCase } from "../use-cases/upload/UploadFileUseCase";
+import { DeleteFileUseCase } from "../use_cases/upload/DeleteFileUseCase";
+import { UploadFileUseCase } from "../use_cases/upload/UploadFileUseCase";
 import { DatabaseFactory } from "./DatabaseFactory";
 
 export class UploadUseCaseFactory {
