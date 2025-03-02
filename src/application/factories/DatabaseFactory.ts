@@ -1,25 +1,24 @@
-import mongoose, { Model } from "mongoose";
-import { UserDocument } from "../../infrastructure/databases/mongoose/model/UserModel";
+import { IFileRepository } from "../../domain/repositories/IFileRepository";
+import { IUserRepository } from "../../domain/repositories/IUserRepository";
+import { UserModel } from "../../infrastructure/databases/mongoose/model/UserModel";
+import { MongooseUserRepository } from "../../infrastructure/databases/mongoose/MongooseUserRepository";
+import { S3FileRepository } from "../../infrastructure/databases/s3/S3FileRepository";
 
 export class DatabaseFactory {
-  private static userModel: Model<UserDocument>;
+  private static userRepository: IUserRepository;
+  private static fileRepository: IFileRepository;
 
-  static getUserModel(): Model<UserDocument> {
-    if (!this.userModel) {
-      try {
-        this.userModel = mongoose.model<UserDocument>("User");
-      } catch (error) {
-        const userSchema = new mongoose.Schema({
-          username: String,
-          email: String,
-          password: String,
-          refreshToken: String,
-          createdAt: Date,
-        });
-        this.userModel = mongoose.model<UserDocument>("User", userSchema);
-      }
+  static getUserRepository(): IUserRepository {
+    if (!this.userRepository) {
+      this.userRepository = new MongooseUserRepository(UserModel);
     }
-    return this.userModel;
+    return this.userRepository;
   }
 
+  static getFileRepository() {
+    if (!this.fileRepository) {
+      this.fileRepository = new S3FileRepository();
+    }
+    return this.fileRepository;
+  }
 }
