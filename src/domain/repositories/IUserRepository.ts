@@ -1,9 +1,13 @@
 import { User } from '../entities/User';
-import { UserDocument } from '../../infrastructure/databases/mongoose/model/UserModel';
+
 export interface IUserRepository {
-  create(user: User): Promise<UserDocument>;
+  create(user: User): Promise<User>;
+  findByEmail(email: string ): Promise<User | null>;
   findById(id: string): Promise<User | null>;
-  findAll(): Promise<User[]>;
-  findByEmail(email: string): Promise<UserDocument | null>;
-  findByRefreshToken(refreshToken: string): Promise<UserDocument | null>;
+  updateUser(id: string, userData: Partial<User>): Promise<User | null>;
+  deleteUser(id: string): Promise<boolean>;
+  updatePassword(id: string, newPassword: string): Promise<boolean>;
+  verifyEmail(id: string): Promise<boolean>;
+  findAll(criteria?: Partial<User>): Promise<User[]>;
+  updateLastLogin(id: string): Promise<boolean>;
 }
