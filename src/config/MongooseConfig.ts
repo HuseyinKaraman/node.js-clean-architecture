@@ -17,7 +17,6 @@ class MongoDBConnection {
     if (!this.isConnected) {
       await mongoose.connect(uri);
       this.isConnected = true;
-      console.log('MongoDB connected');
     } else {
       console.log('MongoDB connection already established');
     }

@@ -1,10 +1,13 @@
-export class UnAuthorizedError extends Error {
-    statusCode: number;
-  
-    constructor(message: string) {
-      super(message);
-      this.statusCode = 401;
-      Object.setPrototypeOf(this, UnAuthorizedError.prototype);
-    }
+import { CustomError } from "./CustomError";
+
+export class UnAuthorizedError extends CustomError {
+  statusCode = 401;
+
+  constructor(
+    public message: string = "Yetkisiz erişim", 
+    public errors?: any[]
+  ) {
+    super(message);
+    Object.setPrototypeOf(this, UnAuthorizedError.prototype);
   }
-  
+}

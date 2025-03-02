@@ -1,10 +1,10 @@
-export class BadRequestError extends Error {
-    statusCode: number;
-  
-    constructor(message: string) {
-      super(message);
-      this.statusCode = 400;
-      Object.setPrototypeOf(this, BadRequestError.prototype);
-    }
+import { CustomError } from './CustomError';
+
+export class BadRequestError extends CustomError {
+  statusCode = 400;
+
+  constructor(public message: string, public errors?: any[]) {
+    super(message);
+    Object.setPrototypeOf(this, BadRequestError.prototype);
   }
-  
+}

@@ -1,10 +1,8 @@
-import { NextFunction, Response,Request } from "express";
-import jwt from "jsonwebtoken";
-import { UserModel } from "../../infrastructure/databases/mongoose/model/UserModel";
+import { NextFunction, Response } from "express";
 import { ExpressRequestInterface } from "../interface/ExpressRequestInterface";
 import { UnAuthorizedError } from "../errors/UnAuthorizedError";
-import { verifyAccessToken } from '../utils/jwtUtils';
-
+import { ServiceFactory } from "../../application/factories/ServiceFactory";
+import { UserModel } from "../../infrastructure/databases/mongoose/model/UserModel";
 
 export const AuthMiddleware = async (
   req: ExpressRequestInterface,
@@ -15,19 +13,37 @@ export const AuthMiddleware = async (
     const authHeader = req.headers.authorization;
 
     if (!authHeader) {
-        throw new UnAuthorizedError("Access Denied. No token provided.")
+      throw new UnAuthorizedError("Access Denied. No token provided.");
     }
+
     const token = authHeader.split(" ")[1];
-    const data = verifyAccessToken(token) as { userId: string;};
-    const user = await UserModel.findById(data.userId);
-
-    if (!user) {
-      throw new UnAuthorizedError("Invalid Token.")
+    
+    // Token servisini factory'den alıyoruz
+    const tokenService = ServiceFactory.getTokenService();
+    
+    try {
+      // Token'ı doğruluyoruz
+      const decoded = await tokenService.verify(token);
+      
+      if (!decoded.id) {
+        throw new UnAuthorizedError("Invalid token format.");
+      }
+      
+      // UserDocument nesnesini doğrudan MongoDB'den alıyoruz
+      const user = await UserModel.findById(decoded.id);
+      
+      if (!user) {
+        throw new UnAuthorizedError("User not found.");
+      }
+      
+      // UserDocument'i request'e ekliyoruz
+      req.user = user;
+      
+      next();
+    } catch (tokenError) {
+      throw new UnAuthorizedError("Invalid or expired token.");
     }
-
-    req.user = user;
-    next();
   } catch (err) {
-    throw new UnAuthorizedError("Invalid Token.")
+    next(err);
   }
 };

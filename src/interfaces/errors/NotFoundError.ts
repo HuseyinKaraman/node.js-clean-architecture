@@ -1,10 +1,13 @@
-export class NotFoundError extends Error {
-    statusCode: number;
-  
-    constructor(message: string) {
-      super(message);
-      this.statusCode = 404;
-      Object.setPrototypeOf(this, NotFoundError.prototype);
-    }
+import { CustomError } from './CustomError';
+
+export class NotFoundError extends CustomError {
+  statusCode = 404;
+
+  constructor(
+    public message: string = 'Kayıt bulunamadı',
+    public errors?: any[]
+  ) {
+    super(message);
+    Object.setPrototypeOf(this, NotFoundError.prototype);
   }
-  
+}

@@ -1,3 +1,3 @@
 export interface ITemplateService {
-    render(template: string, data: Record<string, any>): string;
-}
+    render(templateFn: Function, data: Record<string, any>): string;
+  }

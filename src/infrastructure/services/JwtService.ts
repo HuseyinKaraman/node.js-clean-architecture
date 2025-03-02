@@ -1,11 +1,12 @@
 import jwt from 'jsonwebtoken';
 import { ITokenService } from '../../domain/interfaces/ITokenService';
+import { constants } from '../../constants';
 
 export class JwtService implements ITokenService {
     private readonly secretKey: string;
 
     constructor() {
-        this.secretKey = process.env.JWT_SECRET_KEY!;
+        this.secretKey = constants.ACCESS_TOKEN_SECRET!;
     }
 
     async generate(payload: any): Promise<string> {
